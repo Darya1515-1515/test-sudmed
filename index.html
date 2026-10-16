@@ -346,126 +346,201 @@ var Q=[
 {q:"249. Выраженным гемолитическим свойством обладают:",o:["строчки","бледная поганка","яд змей","берталетова соль"],c:[1,2]},
 {q:"250. У ребенка 0(I) группа крови, у матери B(III) группа крови. Отцом ребенка может быть мужчина, имеющий группу крови:",o:["0 (I)","A (II)","B (III)","AB (IV)"],c:[1,2,3]}
 ];
+// ============ ЛОГИКА ТЕСТА С СОХРАНЕНИЕМ ============
+var STORAGE_KEY = "sudmed_test_progress_v1";
+var idx = 0;
+var ua = Q.map(function(){return[]});
+var checked = Q.map(function(){return false});
 
-// ============ ЛОГИКА ТЕСТА ============
-var idx=0;
-var ua=Q.map(function(){return[]});
-var checked=Q.map(function(){return false});
+var $ = function(id){return document.getElementById(id)};
 
-var $=function(id){return document.getElementById(id)};
-
-function render(){
-  var q=Q[idx];
-  $("qt").textContent=q.q;
-  var html="";
-  q.o.forEach(function(opt,i){
-    var cls="opt";
-    if(checked[idx]){
-      if(q.c.indexOf(i)>-1) cls+=" right";
-      else if(ua[idx].indexOf(i)>-1) cls+=" wrong";
-    } else if(ua[idx].indexOf(i)>-1) cls+=" sel";
-    var dis=checked[idx]?"disabled":"";
-    html+='<div class="'+cls+'" onclick="pick('+i+',this)"><input type="checkbox" '+dis+' '+(ua[idx].indexOf(i)>-1?"checked":"")+'><label>'+opt+'</label></div>';
-  });
-  $("opts").innerHTML=html;
-  $("pf").style.width=((idx+1)/Q.length*100)+"%";
-  $("pt").textContent="Вопрос "+(idx+1)+" из "+Q.length;
-  $("bp").disabled=idx===0;
-  $("hint").textContent=q.c.length>1?"Выберите "+q.c.length+" правильных ответов":"Выберите один правильный ответ";
-  if(checked[idx]){
-    $("bc").style.display="none";
-    $("bn").style.display="inline-block";
-    var allOk=arrEq(ua[idx],q.c);
-    if(allOk) $("fb").className="feedback ok", $("fb").innerHTML="<b>✅ Верно!</b>";
-    else{
-      var correct=q.c.map(function(x){return q.o[x]}).join("; ");
-      $("fb").className="feedback err";
-      $("fb").innerHTML="<b>❌ Ошибка</b>Правильный ответ: "+correct;
-    }
-  } else {
-    $("bc").style.display="inline-block";
-    $("bn").style.display="none";
-    $("fb").className="feedback";
-  }
-  if(idx===Q.length-1 && checked[idx]) $("bn").textContent="Завершить";
-  else $("bn").textContent="Далее →";
+// === Загрузка сохранённого прогресса ===
+function loadProgress(){
+  try{
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if(!saved) return null;
+    var data = JSON.parse(saved);
+    if(!data || !data.ua || !data.checked) return null;
+    if(data.ua.length !== Q.length) return null;
+    return data;
+  }catch(e){return null;}
 }
 
-function pick(i,el){
+// === Сохранение прогресса ===
+function saveProgress(){
+  try{
+    var data = {idx: idx, ua: ua, checked: checked};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }catch(e){}
+}
+
+// === Сброс прогресса ===
+function resetProgress(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+}
+
+// === Проверка при загрузке ===
+function askResume(){
+  var saved = loadProgress();
+  if(!saved) return false;
+  // Есть сохранённый прогресс
+  var answered = 0;
+  saved.checked.forEach(function(c){ if(c) answered++; });
+  if(answered === 0 && saved.idx === 0) return false;
+  var ok = confirm("Найден сохранённый прогресс.\n\nОтвечено вопросов: " + answered + " из " + Q.length + "\nОстановились на вопросе: " + (saved.idx + 1) + "\n\nOK — продолжить\nОтмена — начать заново");
+  if(ok){
+    idx = saved.idx;
+    ua = saved.ua;
+    checked = saved.checked;
+    return true;
+  } else {
+    resetProgress();
+    return false;
+  }
+}
+
+// === Отрисовка вопроса ===
+function render(){
+  var q = Q[idx];
+  $("qt").textContent = q.q;
+  var html = "";
+  q.o.forEach(function(opt, i){
+    var cls = "opt";
+    if(checked[idx]){
+      if(q.c.indexOf(i) > -1) cls += " right";
+      else if(ua[idx].indexOf(i) > -1) cls += " wrong";
+    } else if(ua[idx].indexOf(i) > -1) cls += " sel";
+    var dis = checked[idx] ? "disabled" : "";
+    html += '<div class="' + cls + '" onclick="pick(' + i + ',this)"><input type="checkbox" ' + dis + ' ' + (ua[idx].indexOf(i) > -1 ? "checked" : "") + '><label>' + opt + '</label></div>';
+  });
+  $("opts").innerHTML = html;
+  $("pf").style.width = ((idx + 1) / Q.length * 100) + "%";
+  $("pt").textContent = "Вопрос " + (idx + 1) + " из " + Q.length;
+  $("bp").disabled = (idx === 0);
+  $("hint").textContent = q.c.length > 1 ? "Выберите " + q.c.length + " правильных ответов" : "Выберите один правильный ответ";
+
+  if(checked[idx]){
+    $("bc").style.display = "none";
+    $("bn").style.display = "inline-block";
+    var allOk = arrEq(ua[idx], q.c);
+    if(allOk){
+      $("fb").className = "feedback ok";
+      $("fb").innerHTML = "<b>✅ Верно!</b>";
+    } else {
+      var correct = q.c.map(function(x){return q.o[x]}).join("; ");
+      $("fb").className = "feedback err";
+      $("fb").innerHTML = "<b>❌ Ошибка</b>Правильный ответ: " + correct;
+    }
+  } else {
+    $("bc").style.display = "inline-block";
+    $("bn").style.display = "none";
+    $("fb").className = "feedback";
+  }
+
+  if(idx === Q.length - 1 && checked[idx]) $("bn").textContent = "Завершить";
+  else $("bn").textContent = "Далее →";
+}
+
+function pick(i, el){
   if(checked[idx]) return;
-  var pos=ua[idx].indexOf(i);
-  if(pos===-1) ua[idx].push(i);
-  else ua[idx].splice(pos,1);
+  var pos = ua[idx].indexOf(i);
+  if(pos === -1) ua[idx].push(i);
+  else ua[idx].splice(pos, 1);
+  saveProgress();
   render();
 }
 
 function check(){
-  if(ua[idx].length===0){alert("Выберите хотя бы один ответ");return;}
-  checked[idx]=true;
+  if(ua[idx].length === 0){alert("Выберите хотя бы один ответ");return;}
+  checked[idx] = true;
+  saveProgress();
   render();
 }
 
 function next(){
-  if(idx<Q.length-1){idx++;render();window.scrollTo(0,0);}
-  else finish();
+  if(idx < Q.length - 1){
+    idx++;
+    saveProgress();
+    render();
+    window.scrollTo(0, 0);
+  } else {
+    finish();
+  }
 }
 
 function prev(){
-  if(idx>0){idx--;render();window.scrollTo(0,0);}
+  if(idx > 0){
+    idx--;
+    saveProgress();
+    render();
+    window.scrollTo(0, 0);
+  }
 }
 
-function arrEq(a,b){
-  if(a.length!==b.length) return false;
-  var sa=a.slice().sort(function(x,y){return x-y});
-  var sb=b.slice().sort(function(x,y){return x-y});
-  for(var i=0;i<sa.length;i++) if(sa[i]!==sb[i]) return false;
+function arrEq(a, b){
+  if(a.length !== b.length) return false;
+  var sa = a.slice().sort(function(x,y){return x-y});
+  var sb = b.slice().sort(function(x,y){return x-y});
+  for(var i = 0; i < sa.length; i++) if(sa[i] !== sb[i]) return false;
   return true;
 }
 
 function finish(){
-  var ok=0,no=0,sk=0;
-  Q.forEach(function(q,i){
-    if(ua[i].length===0) sk++;
-    else if(arrEq(ua[i],q.c)) ok++;
+  var ok = 0, no = 0, sk = 0;
+  Q.forEach(function(q, i){
+    if(ua[i].length === 0) sk++;
+    else if(arrEq(ua[i], q.c)) ok++;
     else no++;
   });
-  var pct=Math.round(ok/Q.length*100);
-  var color,grade;
-  if(pct>=90){color="#2ecc71";grade="Отлично"}
-  else if(pct>=75){color="#3498db";grade="Хорошо"}
-  else if(pct>=60){color="#f39c12";grade="Удовлетворительно"}
-  else{color="#e74c3c";grade="Неудовлетворительно"}
-  $("circle").style.background=color;
-  $("snum").textContent=pct+"%";
-  $("slab").textContent=grade;
-  $("sc").textContent=ok;
-  $("sw").textContent=no;
-  $("ss").textContent=sk;
-  var revHtml="";
-  Q.forEach(function(q,i){
-    if(arrEq(ua[i],q.c)) return;
-    var cls=ua[i].length===0?"sk":"no";
-    var userTxt=ua[i].length===0?"Нет ответа":ua[i].map(function(x){return q.o[x]}).join("; ");
-    var corrTxt=q.c.map(function(x){return q.o[x]}).join("; ");
-    revHtml+='<div class="revitem '+cls+'"><div class="revq">'+q.q+'</div><div class="reva no"><b>Ваш ответ:</b> '+userTxt+'</div><div class="reva ok"><b>Правильно:</b> '+corrTxt+'</div></div>';
+  var pct = Math.round(ok / Q.length * 100);
+  var color, grade;
+  if(pct >= 90){color = "#2ecc71"; grade = "Отлично"}
+  else if(pct >= 75){color = "#3498db"; grade = "Хорошо"}
+  else if(pct >= 60){color = "#f39c12"; grade = "Удовлетворительно"}
+  else{color = "#e74c3c"; grade = "Неудовлетворительно"}
+
+  $("circle").style.background = color;
+  $("snum").textContent = pct + "%";
+  $("slab").textContent = grade;
+  $("sc").textContent = ok;
+  $("sw").textContent = no;
+  $("ss").textContent = sk;
+
+  var revHtml = "";
+  Q.forEach(function(q, i){
+    if(arrEq(ua[i], q.c)) return;
+    var cls = ua[i].length === 0 ? "sk" : "no";
+    var userTxt = ua[i].length === 0 ? "Нет ответа" : ua[i].map(function(x){return q.o[x]}).join("; ");
+    var corrTxt = q.c.map(function(x){return q.o[x]}).join("; ");
+    revHtml += '<div class="revitem ' + cls + '"><div class="revq">' + q.q + '</div><div class="reva no"><b>Ваш ответ:</b> ' + userTxt + '</div><div class="reva ok"><b>Правильно:</b> ' + corrTxt + '</div></div>';
   });
-  if(revHtml==="") revHtml='<p style="text-align:center;color:#2ecc71;font-weight:600">Все ответы верны! Отлично! 🎉</p>';
-  $("rev").innerHTML=revHtml;
-  $("quiz").style.display="none";
-  $("res").style.display="block";
-  window.scrollTo(0,0);
+  if(revHtml === "") revHtml = '<p style="text-align:center;color:#2ecc71;font-weight:600">Все ответы верны! Отлично! 🎉</p>';
+  $("rev").innerHTML = revHtml;
+
+  $("quiz").style.display = "none";
+  $("res").style.display = "block";
+  window.scrollTo(0, 0);
 }
 
 function restart(){
-  idx=0;
-  ua=Q.map(function(){return[]});
-  checked=Q.map(function(){return false});
-  $("res").style.display="none";
-  $("quiz").style.display="block";
+  if(!confirm("Начать тест заново? Весь прогресс будет удалён.")) return;
+  resetProgress();
+  idx = 0;
+  ua = Q.map(function(){return[]});
+  checked = Q.map(function(){return false});
+  $("res").style.display = "none";
+  $("quiz").style.display = "block";
   render();
-  window.scrollTo(0,0);
+  window.scrollTo(0, 0);
 }
 
+// === Старт ===
+if(!askResume()){
+  // Не продолжаем — начинаем с нуля
+  idx = 0;
+  ua = Q.map(function(){return[]});
+  checked = Q.map(function(){return false});
+}
 render();
 </script>
 </body>
