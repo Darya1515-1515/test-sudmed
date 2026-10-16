@@ -35,6 +35,15 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .feedback.err{background:#fdeaea;border-left:4px solid #e74c3c;color:#a71d1d;display:block}
 .feedback b{display:block;margin-bottom:6px;font-size:15px}
 .hint{font-size:12px;color:#999;font-style:italic;margin-top:6px}
+.gbtn-main{display:block;width:100%;padding:10px;margin:10px 0;background:#eef1ff;color:#4361ee;border:2px solid #4361ee;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.gbtn-main:hover{background:#dde3ff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;margin-bottom:14px;padding:12px;background:#f8f9ff;border-radius:10px;max-height:280px;overflow-y:auto}
+.gbtn{padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:#333}
+.gbtn:hover{border-color:#4361ee}
+.gbtn.current{border-color:#4361ee;background:#4361ee;color:#fff}
+.gbtn.correct{border-color:#2ecc71;background:#e8f9ee;color:#1e7e34}
+.gbtn.wrong{border-color:#e74c3c;background:#fdeaea;color:#a71d1d}
+.gbtn.answered{border-color:#f39c12;background:#fef5e7;color:#b9770e}
 .res{display:none;text-align:center}
 .res h2{font-size:22px;margin-bottom:14px}
 .circle{width:130px;height:130px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 20px;color:#fff;font-weight:700}
@@ -67,6 +76,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <p class="sub">Выберите все правильные ответы</p>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <div class="ptext" id="pt"></div>
+<button class="gbtn-main" id="gbtn" onclick="toggleGrid()">Все вопросы</button>
+<div class="grid" id="grid" style="display:none"></div>#
 <div class="qtext" id="qt"></div>
 <div id="opts"></div>
 <div class="hint" id="hint"></div>
@@ -519,6 +530,39 @@ function finish(){
 
   $("quiz").style.display = "none";
   $("res").style.display = "block";
+  window.scrollTo(0, 0);
+}
+// === Сетка вопросов ===
+var gridOpen = false;
+
+function toggleGrid(){
+  gridOpen = !gridOpen;
+  var g = $("grid");
+  if(gridOpen){
+    var html = "";
+    for(var i = 0; i < Q.length; i++){
+      var cls = "gbtn";
+      if(i === idx) cls += " current";
+      else if(checked[i]) cls += arrEq(ua[i], Q[i].c) ? " correct" : " wrong";
+      else if(ua[i].length > 0) cls += " answered";
+      html += '<button class="' + cls + '" onclick="goto(' + i + ')">' + (i + 1) + '</button>';
+    }
+    g.innerHTML = html;
+    g.style.display = "grid";
+    $("gbtn").textContent = "Скрыть список";
+  } else {
+    g.style.display = "none";
+    $("gbtn").textContent = "Все вопросы";
+  }
+}
+
+function goto(i){
+  idx = i;
+  saveProgress();
+  gridOpen = false;
+  $("grid").style.display = "none";
+  $("gbtn").textContent = "Все вопросы";
+  render();
   window.scrollTo(0, 0);
 }
 
